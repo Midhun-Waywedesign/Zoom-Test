@@ -27,6 +27,18 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link
+          type="text/css"
+          rel="stylesheet"
+          href="https://source.zoom.us/6.1.0/css/bootstrap.css"
+        />
+        <link
+          type="text/css"
+          rel="stylesheet"
+          href="https://source.zoom.us/6.1.0/css/react-select.css"
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
