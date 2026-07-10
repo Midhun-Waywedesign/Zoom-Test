@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ZoomMeeting from "@/components/ZoomMeeting";
 
 type ClassSession = {
@@ -14,8 +14,30 @@ type ClassSession = {
   userName: string;
 };
 
+// Only what we need to rejoin — signature/sdkKey are short-lived, so we
+// don't persist those; ZoomMeeting.tsx will fetch a fresh signature
+// using meetingNumber on rejoin, same as it already does for students.
+type PersistedTeacherSession = {
+  meetingNumber: string;
+  password: string;
+  zak: string;
+  topic: string;
+  userName: string;
+  joinUrl: string;
+};
+
+type PersistedStudentSession = {
+  meetingNumber: string;
+  password: string;
+  studentName: string;
+};
+
+const TEACHER_KEY = "zoom-teacher-session";
+const STUDENT_KEY = "zoom-student-session";
+
 export default function Home() {
   const [mode, setMode] = useState<"teacher" | "student">("teacher");
+  const [restoring, setRestoring] = useState(true);
 
   // Teacher state
   const [topic, setTopic] = useState("");
@@ -29,6 +51,35 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [studentName, setStudentName] = useState("");
   const [inMeeting, setInMeeting] = useState(false);
+
+  // On mount: check sessionStorage for an in-progress class/meeting
+  // and rejoin it directly instead of showing the start/join form.
+  useEffect(() => {
+    try {
+      const savedTeacher = sessionStorage.getItem(TEACHER_KEY);
+      if (savedTeacher) {
+        const parsed: PersistedTeacherSession = JSON.parse(savedTeacher);
+        setSession({
+          ...parsed,
+          signature: "", // force ZoomMeeting.tsx to fetch a fresh one
+          sdkKey: "",
+        });
+        setRestoring(false);
+        return;
+      }
+
+      const savedStudent = sessionStorage.getItem(STUDENT_KEY);
+      if (savedStudent) {
+        const parsed: PersistedStudentSession = JSON.parse(savedStudent);
+        setMeetingNumber(parsed.meetingNumber);
+        setPassword(parsed.password);
+        setStudentName(parsed.studentName);
+        setInMeeting(true);
+      }
+    } finally {
+      setRestoring(false);
+    }
+  }, []);
 
   async function handleStartClass() {
     setStarting(true);
@@ -45,12 +96,51 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start class");
       setSession(data);
+
+      sessionStorage.setItem(
+        TEACHER_KEY,
+        JSON.stringify({
+          meetingNumber: data.meetingNumber,
+          password: data.password,
+          zak: data.zak,
+          topic: data.topic,
+          userName: data.userName,
+          joinUrl: data.joinUrl,
+        } satisfies PersistedTeacherSession),
+      );
     } catch (err: any) {
       setStartError(err?.message ?? "Something went wrong");
     } finally {
       setStarting(false);
     }
   }
+
+  function handleJoinAsStudent() {
+    setInMeeting(true);
+    sessionStorage.setItem(
+      STUDENT_KEY,
+      JSON.stringify({
+        meetingNumber,
+        password,
+        studentName,
+      } satisfies PersistedStudentSession),
+    );
+  }
+
+  function handleEndClass() {
+    setSession(null);
+    sessionStorage.removeItem(TEACHER_KEY);
+    // optionally also call /api/end-class here to formally end the
+    // meeting on Zoom's side, same as discussed previously
+  }
+
+  function handleLeaveAsStudent() {
+    setInMeeting(false);
+    sessionStorage.removeItem(STUDENT_KEY);
+  }
+
+  // Avoid a flash of the form before we've checked sessionStorage
+  if (restoring) return null;
 
   // Teacher is live (host)
   if (session) {
@@ -81,9 +171,7 @@ export default function Home() {
             userName={session.userName}
             role={1}
             zak={session.zak}
-            signature={session.signature}
-            sdkKey={session.sdkKey}
-            onLeave={() => setSession(null)}
+            onLeave={handleEndClass}
           />
         </div>
       </main>
@@ -98,7 +186,7 @@ export default function Home() {
         password={password}
         userName={studentName || "Student"}
         role={0}
-        onLeave={() => setInMeeting(false)}
+        onLeave={handleLeaveAsStudent}
       />
     );
   }
@@ -208,7 +296,7 @@ export default function Home() {
 
             <button
               disabled={!meetingNumber || !studentName}
-              onClick={() => setInMeeting(true)}
+              onClick={handleJoinAsStudent}
               className="mt-1 bg-blue-600 disabled:bg-gray-300 text-white rounded px-3 py-2.5 font-medium hover:bg-blue-700"
             >
               Join Class
