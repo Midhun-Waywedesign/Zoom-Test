@@ -22,22 +22,14 @@ const SCRIPTS = [
   `https://source.zoom.us/${SDK_VERSION}/lib/vendor/redux.min.js`,
   `https://source.zoom.us/${SDK_VERSION}/lib/vendor/redux-thunk.min.js`,
   `https://source.zoom.us/${SDK_VERSION}/lib/vendor/lodash.min.js`,
-  `https://source.zoom.us/zoom-meeting-embedded-${SDK_VERSION}.min.js`,
+  // Client View script — different bundle than the embedded one you had before
+  `https://source.zoom.us/zoom-meeting-${SDK_VERSION}.min.js`,
 ];
 
-// Zoom's documented hard limits for the "default" (gallery/speaker) view.
-// Anything outside this range gets silently clamped by the SDK internally —
-// so we clamp first, ourselves, to keep our layout in sync with what
-// Zoom will actually render.
-const MAX_SIZE = { width: 1440, height: 720 };
-const MIN_SIZE = { width: 720, height: 411 };
-
-function clamp(width: number, height: number) {
-  return {
-    width: Math.min(Math.max(width, MIN_SIZE.width), MAX_SIZE.width),
-    height: Math.min(Math.max(height, MIN_SIZE.height), MAX_SIZE.height),
-  };
-}
+const STYLES = [
+  `https://source.zoom.us/${SDK_VERSION}/css/bootstrap.css`,
+  `https://source.zoom.us/${SDK_VERSION}/css/react-select.css`,
+];
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -54,15 +46,20 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-async function loadZoomSdk() {
+function loadStyle(href: string): void {
+  if (document.querySelector(`link[href="${href}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.type = "text/css";
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+async function loadZoomClientSdk() {
+  STYLES.forEach(loadStyle);
   for (const src of SCRIPTS) {
     await loadScript(src);
   }
-}
-
-function getClampedSize(el: HTMLElement) {
-  const rect = el.getBoundingClientRect();
-  return clamp(Math.round(rect.width), Math.round(rect.height));
 }
 
 export default function ZoomMeeting({
@@ -75,21 +72,30 @@ export default function ZoomMeeting({
   sdkKey: providedSdkKey,
   onLeave,
 }: Props) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState("Preparing meeting...");
   const [error, setError] = useState<string | null>(null);
+  const [joined, setJoined] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [zoomVisible, setZoomVisible] = useState(false);
+
+  const rootCreatedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    let client: any;
     let cancelled = false;
-    let joined = false;
-    let resizeObserver: ResizeObserver | null = null;
+
+    // Client View renders itself into a full-page root div with this
+    // exact id — Zoom's own CSS makes it fixed/fullscreen once a
+    // meeting starts, so we don't manage its size/position ourselves.
+    if (!document.getElementById("zmmtg-root")) {
+      const root = document.createElement("div");
+      root.id = "zmmtg-root";
+      document.body.appendChild(root);
+      rootCreatedRef.current = true;
+    }
 
     async function start() {
       try {
@@ -113,64 +119,64 @@ export default function ZoomMeeting({
         if (cancelled) return;
 
         setStatus("Loading Zoom SDK...");
-        await loadZoomSdk();
+        await loadZoomClientSdk();
 
-        if (cancelled || !(window as any).ZoomMtgEmbedded) return;
+        const ZoomMtg = (window as any).ZoomMtg;
+        if (cancelled || !ZoomMtg) return;
 
-        client = (window as any).ZoomMtgEmbedded.createClient();
-        if (!containerRef.current || !wrapperRef.current) return;
+        ZoomMtg.setZoomJSLib(
+          `https://source.zoom.us/${SDK_VERSION}/lib`,
+          "/av",
+        );
+        ZoomMtg.preLoadWasm();
+        ZoomMtg.prepareWebSDK();
+        ZoomMtg.i18n.load("en-US");
 
         setStatus("Initializing SDK...");
 
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-
-        // Measure the WRAPPER (the space available), then clamp to
-        // Zoom's documented max of 1440x720 before passing it in.
-        const { width, height } = getClampedSize(wrapperRef.current);
-
-        await client.init({
-          zoomAppRoot: containerRef.current,
-          language: "en-US",
+        ZoomMtg.init({
+          leaveUrl: window.location.href, // see note below re: SPA leave handling
           patchJsMedia: true,
-          customize: {
-            video: {
-              isResizable: true,
-              viewSizes: {
-                default: { width, height },
+          disablePreview: false,
+          success: () => {
+            if (cancelled) return;
+            setStatus(role === 1 ? "Starting class..." : "Joining class...");
+            setZoomVisible(true); // hand off to Zoom's UI right away — don't wait for join() success
+            ZoomMtg.join({
+              signature,
+              sdkKey,
+              meetingNumber,
+              passWord: password,
+              userName,
+              userEmail: "",
+              ...(zak ? { zak } : {}),
+              success: () => {
+                if (cancelled) return;
+                setJoined(true);
+                setStatus("joined");
+                ZoomMtg.inMeetingServiceListener(
+                  "onMeetingStatus",
+                  (data: any) => {
+                    if (data?.meetingStatus === 3) {
+                      setJoined(false);
+                      onLeave();
+                    }
+                  },
+                );
               },
-              popper: {
-                disableDraggable: true,
+              error: (err: any) => {
+                console.error(err);
+                setZoomVisible(false); // fall back to our overlay if join actually fails
+                if (!cancelled)
+                  setError(err?.reason ?? "Failed to join meeting");
               },
-            },
+            });
+          },
+          error: (err: any) => {
+            console.error(err);
+            if (!cancelled) setError(err?.reason ?? "Failed to initialize SDK");
           },
         });
-
-        if (cancelled) return;
-
-        setStatus(role === 1 ? "Starting class..." : "Joining class...");
-        await client.join({
-          sdkKey,
-          signature,
-          meetingNumber,
-          password,
-          userName,
-          ...(zak ? { zak } : {}),
-        });
-
-        joined = true;
-        if (!cancelled) setStatus("joined");
-
-        // Correct API for resizing after init/join is `updateVideoOptions`,
-        // not `updateVideoSize` (that method doesn't exist on the client).
-        resizeObserver = new ResizeObserver(() => {
-          if (!wrapperRef.current || cancelled) return;
-          const size = getClampedSize(wrapperRef.current);
-          client?.updateVideoOptions?.({
-            viewSizes: { default: size },
-          });
-        });
-        resizeObserver.observe(wrapperRef.current);
       } catch (err: any) {
         console.error(err);
         if (!cancelled) setError(err?.message ?? "Something went wrong");
@@ -181,43 +187,33 @@ export default function ZoomMeeting({
 
     return () => {
       cancelled = true;
-      resizeObserver?.disconnect();
-      if (joined) {
-        try {
-          client?.leaveMeeting?.();
-        } catch {}
-      }
+      try {
+        (window as any).ZoomMtg?.leaveMeeting?.({});
+      } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Before joining, show a lightweight status overlay. Once joined,
+  // Zoom's own full-page Client View UI (in #zmmtg-root) takes over —
+  // we don't render anything on top of it.
+  if (joined) return null;
+  if (joined || zoomVisible) return null;
   const content = (
     <div className="fixed inset-0 w-screen h-screen bg-black flex flex-col overflow-hidden z-[999]">
       <div className="flex items-center justify-between bg-black px-3 py-2 sm:px-4 shrink-0">
         <span className="text-xs sm:text-sm text-gray-200 truncate">
-          {error
-            ? `Error: ${error}`
-            : status !== "joined"
-              ? status
-              : role === 1
-                ? "Class is live"
-                : "In class"}
+          {error ? `Error: ${error}` : status}
         </span>
         <button
           onClick={onLeave}
           className="text-xs sm:text-sm px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 shrink-0"
         >
-          {role === 1 ? "End Class" : "Leave"}
+          Cancel
         </button>
       </div>
-      {/* Zoom's video canvas has a hard max of 1440x720, so we center it
-          in whatever space is left instead of trying to stretch it edge
-          to edge — stretching past the max isn't possible. */}
-      <div
-        ref={wrapperRef}
-        className="relative flex-1 max-h-screen w-full flex items-center justify-center overflow-auto"
-      >
-        <div ref={containerRef} id="meetingSDKElement" />
+      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+        {error ?? status}
       </div>
     </div>
   );
