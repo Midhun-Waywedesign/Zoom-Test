@@ -85,3 +85,33 @@ export async function getHostZak(hostUserId: string) {
   const data = await res.json();
   return data.token as string;
 }
+
+export async function getMeetingParticipantsReport(meetingId: string) {
+  const token = await getS2SAccessToken();
+
+  const res = await fetch(`${ZOOM_API_BASE}/report/meetings/${meetingId}/participants`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to get meeting report: ${res.status} ${body}`);
+  }
+
+  return res.json();
+}
+
+export async function getMeetingRecordings(meetingId: string) {
+  const token = await getS2SAccessToken();
+
+  const res = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}/recordings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to get meeting recordings: ${res.status} ${body}`);
+  }
+
+  return res.json();
+}

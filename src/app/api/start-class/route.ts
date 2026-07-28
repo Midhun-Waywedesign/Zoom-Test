@@ -1,58 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { createInstantMeeting, getHostZak } from "@/lib/zoom-api";
+import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, teacherName } = await req.json();
+    const { topic, teacherName, classId, teacherId } = await req.json();
 
     const sdkKey = process.env.ZOOM_SDK_KEY;
     const sdkSecret = process.env.ZOOM_SDK_SECRET;
     const hostUserId = process.env.ZOOM_HOST_USER_ID;
 
-    if (!sdkKey || !sdkSecret) {
+    if (!sdkKey || !sdkSecret || !hostUserId) {
       return NextResponse.json(
-        { error: "Missing ZOOM_SDK_KEY / ZOOM_SDK_SECRET env vars" },
+        { error: "Missing Zoom env vars" },
         { status: 500 }
       );
     }
-    if (!hostUserId) {
+
+    if (!classId || !teacherId) {
       return NextResponse.json(
-        { error: "Missing ZOOM_HOST_USER_ID env var" },
-        { status: 500 }
+        { error: "Missing classId or teacherId" },
+        { status: 400 }
       );
+    }
+
+    // Check if session already exists
+    const existing = await db.getLiveSession(classId);
+    if (existing) {
+      return NextResponse.json({ ...existing, sdkKey });
     }
 
     const meeting = await createInstantMeeting(topic || "Online Class", hostUserId);
     const zak = await getHostZak(hostUserId);
 
-    const iat = Math.round(Date.now() / 1000) - 30;
-    const exp = iat + 60 * 60 * 2;
-
-    const signature = jwt.sign(
-      {
-        appKey: sdkKey,
-        sdkKey,
-        mn: meeting.id,
-        role: 1, // host
-        iat,
-        exp,
-        tokenExp: exp,
-      },
-      sdkSecret,
-      { algorithm: "HS256" }
-    );
-
-    return NextResponse.json({
-      sdkKey,
-      signature,
-      zak,
+    const sessionData = {
+      classId,
       meetingNumber: String(meeting.id),
       password: meeting.password,
+      zak,
       joinUrl: meeting.join_url,
-      topic: meeting.topic,
-      userName: teacherName || "Teacher",
-    });
+      startTime: Date.now()
+    };
+
+    await db.startLiveSession(sessionData);
+
+    return NextResponse.json({ ...sessionData, sdkKey });
   } catch (err: any) {
     console.error("start-class failed:", err);
     return NextResponse.json(

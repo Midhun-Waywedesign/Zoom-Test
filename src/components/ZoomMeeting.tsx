@@ -11,6 +11,7 @@ type Props = {
   zak?: string;
   signature?: string;
   sdkKey?: string;
+  onJoin?: () => void;
   onLeave: () => void;
 };
 
@@ -70,6 +71,7 @@ export default function ZoomMeeting({
   zak,
   signature: providedSignature,
   sdkKey: providedSdkKey,
+  onJoin,
   onLeave,
 }: Props) {
   const [status, setStatus] = useState("Preparing meeting...");
@@ -154,6 +156,7 @@ export default function ZoomMeeting({
                 if (cancelled) return;
                 setJoined(true);
                 setStatus("joined");
+                if (onJoin) onJoin();
                 ZoomMtg.inMeetingServiceListener(
                   "onMeetingStatus",
                   (data: any) => {
@@ -167,8 +170,14 @@ export default function ZoomMeeting({
               error: (err: any) => {
                 console.error(err);
                 setZoomVisible(false); // fall back to our overlay if join actually fails
-                if (!cancelled)
+                if (!cancelled) {
                   setError(err?.reason ?? "Failed to join meeting");
+                  // If the meeting was destroyed on Zoom's side but our mock DB thinks it's still alive,
+                  // or the ZAK token expired/was invalidated, we automatically trigger a leave to clean up the DB
+                  if (err?.errorCode === 3707 || err?.errorCode === 3265) {
+                    setTimeout(() => onLeave(), 2000);
+                  }
+                }
               },
             });
           },

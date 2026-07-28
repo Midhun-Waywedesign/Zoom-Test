@@ -1,309 +1,267 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ZoomMeeting from "@/components/ZoomMeeting";
-
-type ClassSession = {
-  meetingNumber: string;
-  password: string;
-  zak: string;
-  signature: string;
-  sdkKey: string;
-  joinUrl: string;
-  topic: string;
-  userName: string;
-};
-
-// Only what we need to rejoin — signature/sdkKey are short-lived, so we
-// don't persist those; ZoomMeeting.tsx will fetch a fresh signature
-// using meetingNumber on rejoin, same as it already does for students.
-type PersistedTeacherSession = {
-  meetingNumber: string;
-  password: string;
-  zak: string;
-  topic: string;
-  userName: string;
-  joinUrl: string;
-};
-
-type PersistedStudentSession = {
-  meetingNumber: string;
-  password: string;
-  studentName: string;
-};
-
-const TEACHER_KEY = "zoom-teacher-session";
-const STUDENT_KEY = "zoom-student-session";
+import { useRouter } from "next/navigation";
+import type { User } from "@/lib/db";
+import { GraduationCap, ArrowRight, UserPlus, LogIn, Mail, ShieldAlert } from "lucide-react";
 
 export default function Home() {
-  const [mode, setMode] = useState<"teacher" | "student">("teacher");
-  const [restoring, setRestoring] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [regName, setRegName] = useState("");
+  const [regRole, setRegRole] = useState<'student' | 'tutor' | 'admin'>('student');
+  const [regLoading, setRegLoading] = useState(false);
 
-  // Teacher state
-  const [topic, setTopic] = useState("");
-  const [teacherName, setTeacherName] = useState("");
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null);
-  const [session, setSession] = useState<ClassSession | null>(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
-  // Student state
-  const [meetingNumber, setMeetingNumber] = useState("");
-  const [password, setPassword] = useState("");
-  const [studentName, setStudentName] = useState("");
-  const [inMeeting, setInMeeting] = useState(false);
+  const router = useRouter();
 
-  // On mount: check sessionStorage for an in-progress class/meeting
-  // and rejoin it directly instead of showing the start/join form.
+  const fetchUsers = () => {
+    fetch('/api/data?type=users')
+      .then(res => res.json())
+      .then(data => {
+        setUsers(data);
+        setLoading(false);
+      });
+  };
+
   useEffect(() => {
-    try {
-      const savedTeacher = sessionStorage.getItem(TEACHER_KEY);
-      if (savedTeacher) {
-        const parsed: PersistedTeacherSession = JSON.parse(savedTeacher);
-        setSession({
-          ...parsed,
-          signature: "", // force ZoomMeeting.tsx to fetch a fresh one
-          sdkKey: "",
-        });
-        setRestoring(false);
-        return;
-      }
-
-      const savedStudent = sessionStorage.getItem(STUDENT_KEY);
-      if (savedStudent) {
-        const parsed: PersistedStudentSession = JSON.parse(savedStudent);
-        setMeetingNumber(parsed.meetingNumber);
-        setPassword(parsed.password);
-        setStudentName(parsed.studentName);
-        setInMeeting(true);
-      }
-    } finally {
-      setRestoring(false);
-    }
+    fetchUsers();
   }, []);
 
-  async function handleStartClass() {
-    setStarting(true);
-    setStartError(null);
-    try {
-      const res = await fetch("/api/start-class", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: topic || "Online Class",
-          teacherName: teacherName || "Teacher",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to start class");
-      setSession(data);
-
-      sessionStorage.setItem(
-        TEACHER_KEY,
-        JSON.stringify({
-          meetingNumber: data.meetingNumber,
-          password: data.password,
-          zak: data.zak,
-          topic: data.topic,
-          userName: data.userName,
-          joinUrl: data.joinUrl,
-        } satisfies PersistedTeacherSession),
-      );
-    } catch (err: any) {
-      setStartError(err?.message ?? "Something went wrong");
-    } finally {
-      setStarting(false);
+  const handleLogin = (user: User) => {
+    sessionStorage.setItem('academy-user', JSON.stringify(user));
+    if (user.role === 'admin') {
+      router.push('/dashboard/admin');
+    } else if (user.role === 'tutor') {
+      router.push('/dashboard/teacher');
+    } else {
+      router.push('/dashboard/student');
     }
-  }
+  };
 
-  function handleJoinAsStudent() {
-    setInMeeting(true);
-    sessionStorage.setItem(
-      STUDENT_KEY,
-      JSON.stringify({
-        meetingNumber,
-        password,
-        studentName,
-      } satisfies PersistedStudentSession),
-    );
-  }
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!users.length) return;
+    
+    // Mock authentication logic based on email
+    let userToLogin = users.find(u => u.role === 'student');
+    
+    if (loginEmail.toLowerCase().includes('admin')) {
+      userToLogin = users.find(u => u.role === 'admin');
+    } else if (loginEmail.toLowerCase().includes('tutor')) {
+      userToLogin = users.find(u => u.role === 'tutor');
+    }
 
-  function handleEndClass() {
-    setSession(null);
-    sessionStorage.removeItem(TEACHER_KEY);
-    // optionally also call /api/end-class here to formally end the
-    // meeting on Zoom's side, same as discussed previously
-  }
+    if (userToLogin) {
+      handleLogin(userToLogin);
+    }
+  };
 
-  function handleLeaveAsStudent() {
-    setInMeeting(false);
-    sessionStorage.removeItem(STUDENT_KEY);
-  }
-
-  // Avoid a flash of the form before we've checked sessionStorage
-  if (restoring) return null;
-
-  // Teacher is live (host)
-  if (session) {
-    return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto flex flex-col gap-4">
-          <div className="bg-white rounded-xl shadow p-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold">{session.topic}</h2>
-              <p className="text-sm text-gray-500">
-                Meeting ID:{" "}
-                <span className="font-mono">{session.meetingNumber}</span>
-                {"  ·  "}
-                Passcode: <span className="font-mono">{session.password}</span>
-              </p>
-            </div>
-            <button
-              onClick={() => navigator.clipboard.writeText(session.joinUrl)}
-              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50"
-            >
-              Copy student join link
-            </button>
-          </div>
-
-          <ZoomMeeting
-            meetingNumber={session.meetingNumber}
-            password={session.password}
-            userName={session.userName}
-            role={1}
-            zak={session.zak}
-            onLeave={handleEndClass}
-          />
-        </div>
-      </main>
-    );
-  }
-
-  // Student is in class
-  if (inMeeting) {
-    return (
-      <ZoomMeeting
-        meetingNumber={meetingNumber}
-        password={password}
-        userName={studentName || "Student"}
-        role={0}
-        onLeave={handleLeaveAsStudent}
-      />
-    );
-  }
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName.trim()) return;
+    setRegLoading(true);
+    
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: regName, role: regRole })
+      });
+      const newUser = await res.json();
+      
+      // Auto login after registration
+      handleLogin(newUser);
+    } catch (err) {
+      console.error(err);
+      setRegLoading(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-6 flex flex-col gap-5">
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-semibold">
-            🎓
+    <main className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-[#020617] p-6 font-sans relative overflow-hidden">
+      {/* SaaS Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-brand-500/10 to-transparent"></div>
+      <div className="absolute -top-32 -right-32 w-96 h-96 bg-brand-500 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
+      
+      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-center relative z-10">
+        
+        {/* Left Side: Branding & Pitch */}
+        <div className="flex flex-col gap-6 text-center md:text-left order-2 md:order-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 text-sm font-semibold w-max mx-auto md:mx-0">
+            <ShieldAlert className="w-4 h-4" />
+            Axis Language School Demo
           </div>
-          <h1 className="text-xl font-semibold text-blue-600">
-            Online Classroom
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground tracking-tight leading-tight">
+            The modern way to <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600">master languages.</span>
           </h1>
-          <p className="text-sm text-gray-500 text-center">
-            Start a live class or join one as a student
+          <p className="text-lg text-foreground/60 max-w-lg mx-auto md:mx-0">
+            Join live classes seamlessly directly in your browser. No extra apps, no extra accounts. Experience education reinvented.
           </p>
+          <div className="hidden md:flex gap-4 items-center text-sm font-medium text-foreground/50 mt-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-green-500"></div> Instant Join
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div> Cloud Recordings
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-purple-500"></div> Automated Tracking
+            </div>
+          </div>
         </div>
 
-        <div className="flex rounded-lg bg-gray-100 p-1">
-          <button
-            onClick={() => setMode("teacher")}
-            className={`flex-1 py-1.5 rounded-md text-sm font-medium transition ${
-              mode === "teacher"
-                ? "bg-white shadow text-black"
-                : "text-gray-500"
-            }`}
-          >
-            I&apos;m a Teacher
-          </button>
-          <button
-            onClick={() => setMode("student")}
-            className={`flex-1 py-1.5 rounded-md text-sm font-medium transition ${
-              mode === "student" ? "bg-white shadow" : "text-gray-500"
-            }`}
-          >
-            I&apos;m a Student
-          </button>
+        {/* Right Side: Auth Module */}
+        <div className="glass rounded-3xl shadow-2xl border border-foreground/10 p-8 order-1 md:order-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+          
+          <div className="flex flex-col items-center gap-3 mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center text-3xl font-semibold shadow-lg shadow-brand-500/30">
+              <GraduationCap className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Axis Portal</h2>
+          </div>
+
+          {/* Toggle Tabs */}
+          <div className="flex p-1 bg-foreground/5 rounded-xl mb-6">
+            <button 
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${!isRegistering ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-foreground/60 hover:text-foreground'}`}
+              onClick={() => setIsRegistering(false)}
+            >
+              <span className="hidden sm:inline">Sign In</span>
+              <span className="sm:hidden">Login</span>
+            </button>
+            <button 
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${isRegistering ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-foreground/60 hover:text-foreground'}`}
+              onClick={() => setIsRegistering(true)}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {isRegistering ? (
+            <form onSubmit={handleRegister} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-2">Full Name</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
+                  <input 
+                    type="text"
+                    required
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder="e.g. Emma Smith"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-foreground/10 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all font-medium"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-2">I am a...</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRegRole('student')}
+                    className={`py-2 text-sm rounded-xl border font-semibold transition-all ${regRole === 'student' ? 'bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500 dark:text-brand-400' : 'bg-background border-foreground/10 text-foreground/60 hover:border-foreground/20'}`}
+                  >
+                    Student
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegRole('tutor')}
+                    className={`py-2 text-sm rounded-xl border font-semibold transition-all ${regRole === 'tutor' ? 'bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500 dark:text-brand-400' : 'bg-background border-foreground/10 text-foreground/60 hover:border-foreground/20'}`}
+                  >
+                    Tutor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegRole('admin')}
+                    className={`py-2 text-sm rounded-xl border font-semibold transition-all ${regRole === 'admin' ? 'bg-brand-50 border-brand-500 text-brand-700 dark:bg-brand-900/30 dark:border-brand-500 dark:text-brand-400' : 'bg-background border-foreground/10 text-foreground/60 hover:border-foreground/20'}`}
+                  >
+                    Admin
+                  </button>
+                </div>
+              </div>
+              
+              <button 
+                type="submit"
+                disabled={regLoading || !regName.trim()}
+                className="w-full mt-2 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20"
+              >
+                {regLoading ? 'Creating Account...' : (
+                  <>Create Account <ArrowRight className="w-5 h-5" /></>
+                )}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
+              <div className="bg-brand-50 dark:bg-brand-500/10 p-3 rounded-lg border border-brand-200 dark:border-brand-500/20 text-brand-700 dark:text-brand-300 text-xs text-center mb-2">
+                <strong>Demo Accounts:</strong><br/>
+                admin@axis.edu | tutor@axis.edu | student@axis.edu<br/>
+                (Password can be anything)
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-2">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
+                  <input 
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="student@axis.edu"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-foreground/10 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all font-medium"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-2">Password</label>
+                <div className="relative">
+                  <ShieldAlert className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
+                  <input 
+                    type="password"
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-foreground/10 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all font-medium"
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={loading || !loginEmail || !loginPassword}
+                className="w-full mt-2 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20"
+              >
+                {loading ? 'Loading Database...' : (
+                  <>Sign In <LogIn className="w-5 h-5" /></>
+                )}
+              </button>
+            </form>
+          )}
         </div>
-
-        {mode === "teacher" ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-gray-600">Class Topic</label>
-              <input
-                className="border rounded px-3 py-2 text-black"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. Grade 10 - Algebra Basics"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-gray-600">Your Name</label>
-              <input
-                className="border rounded px-3 py-2 text-black"
-                value={teacherName}
-                onChange={(e) => setTeacherName(e.target.value)}
-                placeholder="e.g. Ms. Fernandez"
-              />
-            </div>
-
-            {startError && <p className="text-sm text-red-600">{startError}</p>}
-
-            <button
-              disabled={starting}
-              onClick={handleStartClass}
-              className="mt-1 bg-blue-600 disabled:bg-gray-300 text-white rounded px-3 py-2.5 font-medium hover:bg-blue-700"
-            >
-              {starting ? "Starting class..." : "Start Class"}
-            </button>
-
-            <p className="text-xs text-gray-400 text-center">
-              This creates a new Zoom meeting and starts it instantly as host.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-gray-600">Meeting ID</label>
-              <input
-                className="border rounded px-3 py-2 text-black"
-                value={meetingNumber}
-                onChange={(e) => setMeetingNumber(e.target.value.trim())}
-                placeholder="e.g. 82123456789"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-gray-600">Passcode</label>
-              <input
-                className="border rounded px-3 py-2 text-black"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-sm text-gray-600">Your Name</label>
-              <input
-                className="border rounded px-3 py-2 text-black"
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                placeholder="e.g. Alex"
-              />
-            </div>
-
-            <button
-              disabled={!meetingNumber || !studentName}
-              onClick={handleJoinAsStudent}
-              className="mt-1 bg-blue-600 disabled:bg-gray-300 text-white rounded px-3 py-2.5 font-medium hover:bg-blue-700"
-            >
-              Join Class
-            </button>
-          </div>
-        )}
       </div>
+      
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(150, 150, 150, 0.2);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(150, 150, 150, 0.4);
+        }
+      `}</style>
     </main>
   );
 }
