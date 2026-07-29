@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/lib/db";
-import { GraduationCap, ArrowRight, UserPlus, LogIn, Mail, ShieldAlert } from "lucide-react";
+import { GraduationCap, ArrowRight, LogIn, Mail, ShieldAlert } from "lucide-react";
 
 export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
@@ -96,10 +96,10 @@ export default function Home() {
             <ShieldAlert className="w-4 h-4" />
             Axis Language School Demo
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground tracking-tight leading-tight">
-            The modern way to <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600">master languages.</span>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
+            The modern way to <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-400">master languages.</span>
           </h1>
-          <p className="text-lg text-foreground/60 max-w-lg mx-auto md:mx-0">
+          <p className="text-lg md:text-xl text-slate-500 max-w-lg mx-auto md:mx-0 font-medium mt-2">
             Join live classes seamlessly directly in your browser. No extra apps, no extra accounts. Experience education reinvented.
           </p>
           <div className="hidden md:flex gap-4 items-center text-sm font-medium text-foreground/50 mt-4">
@@ -115,27 +115,29 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right Side: Auth Module */}
-        <div className="glass rounded-3xl shadow-2xl border border-foreground/10 p-8 order-1 md:order-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+        <div className="bg-white rounded-[2rem] shadow-2xl shadow-brand-500/10 border border-slate-100 p-8 md:p-10 order-1 md:order-2 w-full max-w-md mx-auto">
           
-          <div className="flex flex-col items-center gap-3 mb-8">
+          <div className="flex flex-col items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center text-3xl font-semibold shadow-lg shadow-brand-500/30">
               <GraduationCap className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground">Axis Portal</h2>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Axis Portal</h2>
+              <p className="text-sm font-medium text-slate-500 mt-1">Sign in to continue your journey</p>
+            </div>
           </div>
 
           {/* Toggle Tabs */}
-          <div className="flex p-1 bg-foreground/5 rounded-xl mb-6">
+          <div className="flex p-1.5 bg-slate-100 rounded-xl mb-8">
             <button 
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${!isRegistering ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-foreground/60 hover:text-foreground'}`}
+              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${!isRegistering ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
               onClick={() => setIsRegistering(false)}
             >
               <span className="hidden sm:inline">Sign In</span>
               <span className="sm:hidden">Login</span>
             </button>
             <button 
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${isRegistering ? 'bg-white dark:bg-slate-800 shadow-sm text-foreground' : 'text-foreground/60 hover:text-foreground'}`}
+              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${isRegistering ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
               onClick={() => setIsRegistering(true)}
             >
               Create Account
@@ -154,7 +156,7 @@ export default function Home() {
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     placeholder="e.g. Emma Smith"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-foreground/10 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all font-medium"
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10 outline-none transition-all font-medium text-slate-900 placeholder-slate-400"
                   />
                 </div>
               </div>
@@ -188,7 +190,7 @@ export default function Home() {
               <button 
                 type="submit"
                 disabled={regLoading || !regName.trim()}
-                className="w-full mt-2 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20"
+                className="w-full mt-4 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20 text-lg"
               >
                 {regLoading ? 'Creating Account...' : (
                   <>Create Account <ArrowRight className="w-5 h-5" /></>
@@ -197,38 +199,38 @@ export default function Home() {
             </form>
           ) : (
             <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
-              <div className="bg-brand-50 dark:bg-brand-500/10 p-3 rounded-lg border border-brand-200 dark:border-brand-500/20 text-brand-700 dark:text-brand-300 text-xs text-center mb-2">
+              <div className="bg-brand-50 p-4 rounded-xl border border-brand-100 text-brand-800 text-xs text-center mb-4 font-medium">
                 <strong>Demo Accounts:</strong><br/>
-                admin@axis.edu | tutor@axis.edu | student@axis.edu<br/>
-                (Password can be anything)
+                <span className="opacity-80">admin@axis.edu | tutor@axis.edu | student@axis.edu</span><br/>
+                <span className="opacity-70">(Password can be anything)</span>
               </div>
               
-              <div>
-                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-2">Email Address</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="block text-sm font-bold text-slate-700">Email Address</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input 
                     type="email"
                     required
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder="student@axis.edu"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-foreground/10 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all font-medium"
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10 outline-none transition-all font-medium text-slate-900 placeholder-slate-400"
                   />
                 </div>
               </div>
               
-              <div>
-                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-2">Password</label>
+              <div className="flex flex-col gap-1.5 mt-2">
+                <label className="block text-sm font-bold text-slate-700">Password</label>
                 <div className="relative">
-                  <ShieldAlert className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
+                  <ShieldAlert className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input 
                     type="password"
                     required
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-foreground/10 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all font-medium"
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10 outline-none transition-all font-medium text-slate-900 placeholder-slate-400"
                   />
                 </div>
               </div>
@@ -236,7 +238,7 @@ export default function Home() {
               <button 
                 type="submit"
                 disabled={loading || !loginEmail || !loginPassword}
-                className="w-full mt-2 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20"
+                className="w-full mt-4 py-3.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20 text-lg"
               >
                 {loading ? 'Loading Database...' : (
                   <>Sign In <LogIn className="w-5 h-5" /></>

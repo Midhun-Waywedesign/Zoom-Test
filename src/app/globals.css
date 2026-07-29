@@ -1,6 +1,8 @@
 @import "tailwindcss";
+@custom-variant dark (&:is(.never-dark *));
 
 @theme {
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   --color-brand-50: #eff6ff;
   --color-brand-100: #dbeafe;
   --color-brand-500: #3b82f6;
@@ -26,12 +28,7 @@
   --foreground: #0f172a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    --foreground: #f8fafc;
-  }
-}
+
 
 body {
   background: var(--background);
@@ -47,10 +44,8 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  .glass {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
+/* Hide Next.js Dev Error Overlay (Turbopack/React errors) */
+nextjs-portal {
+  display: none !important;
 }
 

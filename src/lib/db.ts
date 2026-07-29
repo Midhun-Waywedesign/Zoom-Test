@@ -69,7 +69,7 @@ const INITIAL_DATA: DbSchema = {
       teacherId: 't1',
       studentIds: ['s1', 's2'],
       recordings: [
-        { id: 'r1', title: 'Intro to Greetings', url: 'https://example.com/video1', date: new Date(Date.now() - 86400000).toISOString(), status: 'uploaded' }
+        { id: 'r1', title: 'Intro to Greetings', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', date: new Date(Date.now() - 86400000).toISOString(), status: 'uploaded', password: 'dummy-passcode-123' }
       ]
     },
     {
@@ -179,9 +179,10 @@ export const db = {
         cls.recordings.push({
           id: `rec_${Date.now()}`,
           title: `Class Recording - ${new Date().toLocaleDateString()}`,
-          url: 'https://example.com/dummy-recording',
+          url: '#processing',
           date: new Date().toISOString(),
-          status: 'pending'
+          status: 'pending',
+          password: 'processing-passcode'
         });
         if (!cls.pastMeetingNumbers) cls.pastMeetingNumbers = [];
         cls.pastMeetingNumbers.push(session.meetingNumber);

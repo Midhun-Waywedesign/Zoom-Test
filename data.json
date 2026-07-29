@@ -1,32 +1,141 @@
 {
   "users": [
-    { "id": "a1", "name": "Admin Portal", "role": "admin" },
-    { "id": "t1", "name": "Maria Garcia", "role": "tutor" },
-    { "id": "t2", "name": "David Smith", "role": "tutor" },
-    { "id": "s1", "name": "Emma Johnson", "role": "student" },
-    { "id": "s2", "name": "Liam Brown", "role": "student" }
+    {
+      "id": "a1",
+      "name": "Admin Portal",
+      "role": "admin"
+    },
+    {
+      "id": "t1",
+      "name": "Maria Garcia",
+      "role": "tutor"
+    },
+    {
+      "id": "t2",
+      "name": "David Smith",
+      "role": "tutor"
+    },
+    {
+      "id": "s1",
+      "name": "Emma Johnson",
+      "role": "student"
+    },
+    {
+      "id": "s2",
+      "name": "Liam Brown",
+      "role": "student"
+    }
   ],
   "classes": [
     {
       "id": "c1",
       "name": "Spanish A1 - Batch 1",
       "teacherId": "t1",
-      "studentIds": ["s1", "s2"],
+      "studentIds": [
+        "s1",
+        "s2"
+      ],
       "recordings": [
-        { "id": "r1", "title": "Intro to Greetings", "url": "https://example.com/video1", "date": "2026-07-27T00:00:00.000Z", "status": "uploaded" }
+        {
+          "id": "r1",
+          "title": "Intro to Greetings",
+          "url": "https://example.com/video1",
+          "date": "2026-07-27T00:00:00.000Z",
+          "status": "uploaded"
+        },
+        {
+          "id": "rec_1785299545611",
+          "title": "Class Recording - 29/7/2026",
+          "url": "https://example.com/dummy-recording",
+          "date": "2026-07-29T04:32:25.860Z",
+          "status": "pending"
+        },
+        {
+          "id": "rec_1785301986746",
+          "title": "Class Recording - 29/7/2026",
+          "url": "https://example.com/dummy-recording",
+          "date": "2026-07-29T05:13:06.950Z",
+          "status": "pending"
+        },
+        {
+          "id": "rec_1785307562763",
+          "title": "Class Recording - 29/7/2026",
+          "url": "#processing",
+          "date": "2026-07-29T06:46:02.810Z",
+          "status": "pending",
+          "password": "processing-passcode"
+        },
+        {
+          "id": "rec_1785307986291",
+          "title": "Class Recording - 29/7/2026",
+          "url": "#processing",
+          "date": "2026-07-29T06:53:06.309Z",
+          "status": "pending",
+          "password": "processing-passcode"
+        }
+      ],
+      "pastMeetingNumbers": [
+        "86244439679",
+        "87306431278",
+        "81854001274",
+        "86705292647"
       ]
     },
     {
       "id": "c2",
       "name": "Business English - Advanced",
       "teacherId": "t2",
-      "studentIds": ["s1"],
+      "studentIds": [
+        "s1"
+      ],
       "recordings": []
+    },
+    {
+      "id": "c_1785303461705",
+      "name": "french",
+      "teacherId": "t1",
+      "studentIds": [],
+      "recordings": [
+        {
+          "id": "rec_1785308595215",
+          "title": "Class Recording - 29/7/2026",
+          "url": "#processing",
+          "date": "2026-07-29T07:03:15.492Z",
+          "status": "pending",
+          "password": "processing-passcode"
+        }
+      ],
+      "pastMeetingNumbers": [
+        "84732647016"
+      ]
     }
   ],
   "liveSessions": [],
-  "attendance": [],
+  "attendance": [
+    {
+      "classId": "c1",
+      "meetingNumber": "86244439679",
+      "studentId": "s1",
+      "studentName": "Emma Johnson",
+      "joinTime": 1785299432792,
+      "leaveTime": 1785299546367
+    },
+    {
+      "classId": "c1",
+      "meetingNumber": "81854001274",
+      "studentId": "s1",
+      "studentName": "Emma Johnson",
+      "joinTime": 1785307461210,
+      "leaveTime": 1785307513138
+    }
+  ],
   "enrollmentRequests": [
-    { "id": "req_1", "studentId": "s2", "classId": "c2", "status": "pending", "requestDate": 1700000000000 }
+    {
+      "id": "req_1",
+      "studentId": "s2",
+      "classId": "c2",
+      "status": "pending",
+      "requestDate": 1700000000000
+    }
   ]
 }

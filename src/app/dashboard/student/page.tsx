@@ -3,21 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User, ClassDef, LiveSession, EnrollmentRequest } from "@/lib/db";
-import { Users, CheckCircle, XCircle, Play, Video, Clock, Search, BookOpen } from "lucide-react";
+import { Users, CheckCircle, XCircle, Play, Video, Clock, BookOpen, Copy, Check, Calendar, Lock } from "lucide-react";
 
 export default function StudentDashboard() {
   const [user, setUser] = useState<User | null>(null);
   
-  const [myClasses, setMyClasses] = useState<ClassDef[]>([]);
+  const [myClass, setMyClass] = useState<ClassDef | null>(null);
   const [allClasses, setAllClasses] = useState<ClassDef[]>([]);
-  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
-  const [myRequests, setMyRequests] = useState<EnrollmentRequest[]>([]);
+  const [liveSession, setLiveSession] = useState<LiveSession | null>(null);
+  const [myRequest, setMyRequest] = useState<EnrollmentRequest | null>(null);
   
-  const [activeTab, setActiveTab] = useState<'enrolled' | 'browse'>('enrolled');
-
-  const [viewingRecordings, setViewingRecordings] = useState<string | null>(null);
   const [recordingsData, setRecordingsData] = useState<any[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(false);
+  const [copiedPasscode, setCopiedPasscode] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(true);
 
   const router = useRouter();
 
@@ -29,12 +29,28 @@ export default function StudentDashboard() {
         fetch(`/api/data?type=live-sessions`).then(res => res.json()),
         fetch(`/api/enroll?studentId=${userId}`).then(res => res.json())
       ]);
-      setMyClasses(myClassesRes);
+      
+      const enrolledClass = myClassesRes.length > 0 ? myClassesRes[0] : null;
+      setMyClass(enrolledClass);
       setAllClasses(allClassesRes);
-      setLiveSessions(sessionsRes);
-      setMyRequests(requestsRes);
+      setLiveSession(enrolledClass ? (sessionsRes.find((s: LiveSession) => s.classId === enrolledClass.id) || null) : null);
+      
+      // Find the most relevant request (pending or rejected). If approved, it doesn't matter because they have myClass.
+      const pendingReq = requestsRes.find((r: EnrollmentRequest) => r.status === 'pending');
+      const rejectedReq = requestsRes.find((r: EnrollmentRequest) => r.status === 'rejected');
+      setMyRequest(pendingReq || rejectedReq || null);
+
+      if (enrolledClass) {
+        setLoadingRecordings(true);
+        fetch(`/api/recordings?classId=${enrolledClass.id}`)
+          .then(res => res.json())
+          .then(data => setRecordingsData(Array.isArray(data) ? data : []))
+          .finally(() => setLoadingRecordings(false));
+      }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,10 +61,6 @@ export default function StudentDashboard() {
     setUser(parsedUser);
     fetchData(parsedUser.id);
   }, []);
-
-  const handleJoinLive = (classId: string) => {
-    router.push(`/meeting/${classId}?role=0`);
-  };
 
   const handleRequestJoin = async (classId: string) => {
     if (!user) return;
@@ -64,216 +76,196 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleViewRecordings = async (classId: string) => {
-    setViewingRecordings(classId);
-    setLoadingRecordings(true);
-    try {
-      const res = await fetch(`/api/recordings?classId=${classId}`);
-      const data = await res.json();
-      setRecordingsData(data);
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setLoadingRecordings(false);
-    }
+  const handleCopyPasscode = (passcode: string) => {
+    if (!passcode) return;
+    navigator.clipboard.writeText(passcode);
+    setCopiedPasscode(passcode);
+    setTimeout(() => setCopiedPasscode(null), 2000);
   };
 
-  if (!user) return null;
-
-  return (
-    <div className="p-8 max-w-6xl mx-auto flex flex-col gap-8">
-      
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Axis Student Dashboard</h1>
-        <p className="text-slate-500 mt-1">Access your language batches and request to join new ones.</p>
+  if (!user || loading) {
+    return (
+      <div className="flex items-center justify-center h-full p-12 text-slate-500 animate-pulse">
+        Loading workspace...
       </div>
+    );
+  }
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800">
-        <button
-          className={`px-4 py-3 font-semibold text-sm transition-all border-b-2 flex items-center gap-2 ${
-            activeTab === 'enrolled' 
-              ? 'border-brand-500 text-brand-600 dark:text-brand-400' 
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-          }`}
-          onClick={() => setActiveTab('enrolled')}
-        >
-          <BookOpen className="w-4 h-4" /> My Classes
-        </button>
-        <button
-          className={`px-4 py-3 font-semibold text-sm transition-all border-b-2 flex items-center gap-2 ${
-            activeTab === 'browse' 
-              ? 'border-brand-500 text-brand-600 dark:text-brand-400' 
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-          }`}
-          onClick={() => setActiveTab('browse')}
-        >
-          <Search className="w-4 h-4" /> Browse Classes
-        </button>
-      </div>
+  // --- VIEW 1: ENROLLMENT HUB (Not enrolled yet) ---
+  if (!myClass) {
+    return (
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col gap-8 pb-20">
+        <div className="text-center max-w-2xl mx-auto mt-8 mb-4">
+          <div className="w-16 h-16 bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <BookOpen className="w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3">Join a Language Batch</h1>
+          <p className="text-slate-500 text-lg">You are currently not enrolled in any class. Please select a batch below to request access.</p>
+        </div>
 
-      {/* Tab Content */}
-      {activeTab === 'enrolled' && (
-        <div className="flex flex-col gap-6">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">My Language Batches</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {myClasses.map(cls => {
-              const liveSession = liveSessions.find(s => s.classId === cls.id);
-              return (
-                <div key={cls.id} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col hover:border-brand-500/50 transition-colors">
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">{cls.name}</h3>
-                        <p className="text-sm text-slate-500 mt-1">Tutor ID: {cls.teacherId}</p>
-                      </div>
-                      {liveSession && (
-                        <span className="px-3 py-1 bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-full flex items-center gap-1.5 animate-pulse">
-                          <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
-                          Live Now
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="mt-auto pt-6">
-                      {liveSession ? (
-                        <button
-                          className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl border border-brand-600 transition-all text-sm flex items-center justify-center gap-2 shadow-md shadow-brand-500/20"
-                          onClick={() => handleJoinLive(cls.id)}
-                        >
-                          <Video className="w-4 h-4" /> Join Live Class
-                        </button>
-                      ) : (
-                        <div className="w-full bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-medium py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm flex items-center justify-center gap-2">
-                          <Clock className="w-4 h-4" /> Waiting for tutor
-                        </div>
-                      )}
-                    </div>
+        {myRequest && myRequest.status === 'pending' && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm max-w-3xl mx-auto w-full">
+            <div className="flex items-center gap-4 text-amber-800 dark:text-amber-300">
+              <Clock className="w-6 h-6 shrink-0" />
+              <div>
+                <h3 className="font-bold text-lg">Enrollment Request Pending</h3>
+                <p className="text-sm opacity-80">An admin is reviewing your request. Please check back later.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {myRequest && myRequest.status === 'rejected' && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm max-w-3xl mx-auto w-full">
+            <div className="flex items-center gap-4 text-red-800 dark:text-red-300">
+              <XCircle className="w-6 h-6 shrink-0" />
+              <div>
+                <h3 className="font-bold text-lg">Request Declined</h3>
+                <p className="text-sm opacity-80">Your previous request was declined. You can select another batch below.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+          {allClasses.map(cls => {
+            const isRequested = myRequest?.classId === cls.id && myRequest?.status === 'pending';
+            
+            return (
+              <div key={cls.id} className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 p-8 flex flex-col gap-6 hover:-translate-y-1 transition-transform duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center font-black text-xl shadow-inner">
+                    {cls.name.charAt(0)}
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                    <button
-                      className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
-                      onClick={() => handleViewRecordings(cls.id)}
-                    >
-                      <Play className="w-4 h-4" /> View Past Recordings
-                    </button>
+                  <div>
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{cls.name}</h3>
+                    <p className="text-xs text-slate-500 mt-1 font-medium">Tutor ID: {cls.teacherId}</p>
                   </div>
                 </div>
-              );
-            })}
-            
-            {myClasses.length === 0 && (
-              <div className="col-span-full py-12 text-center text-slate-500 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center gap-3">
-                <BookOpen className="w-8 h-8 opacity-50" />
-                <p>You haven't been approved for any classes yet.</p>
-                <button 
-                  onClick={() => setActiveTab('browse')}
-                  className="mt-2 text-brand-600 font-semibold text-sm hover:underline"
+                
+                <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                  <Users className="w-4 h-4" /> {cls.studentIds.length} Enrolled Students
+                </div>
+
+                <button
+                  disabled={isRequested || (!!myRequest && myRequest.status === 'pending')}
+                  onClick={() => handleRequestJoin(cls.id)}
+                  className={`mt-auto w-full py-3.5 rounded-xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 ${
+                    isRequested 
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'
+                      : 'bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-brand-500/25'
+                  }`}
                 >
-                  Browse available classes
+                  {isRequested ? <><Clock className="w-4 h-4" /> Requested</> : 'Request Access'}
                 </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // --- VIEW 2: CLASS PORTAL (Enrolled) ---
+  return (
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col gap-8 pb-20">
+      
+      {/* Class Header Hero */}
+      <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-brand-500/5 p-8 sm:p-10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+          <div className="flex flex-col gap-2">
+            <span className="px-3 py-1 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold uppercase tracking-wider rounded-lg w-fit flex items-center gap-1.5">
+              <CheckCircle className="w-3.5 h-3.5" /> Active Enrollment
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+              {myClass.name}
+            </h1>
+            <div className="flex items-center gap-4 text-sm font-medium text-slate-500 mt-2">
+              <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-slate-400" /> {myClass.studentIds.length} Students</span>
+              <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-slate-400" /> {myClass.pastMeetingNumbers?.length || 0} Total Sessions</span>
+            </div>
+          </div>
+          
+          <div className="shrink-0 w-full sm:w-auto">
+            {liveSession ? (
+              <button
+                className="w-full sm:w-auto px-8 py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-brand-500/25 flex items-center justify-center gap-3 active:scale-95"
+                onClick={() => window.location.href = `/meeting/${myClass.id}?role=0`}
+              >
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                </div>
+                Join Live Class
+              </button>
+            ) : (
+              <div className="w-full sm:w-auto px-8 py-4 bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-3">
+                <Lock className="w-5 h-5 opacity-50" /> Waiting for Tutor
               </div>
             )}
           </div>
         </div>
-      )}
+      </div>
 
-      {activeTab === 'browse' && (
-        <div className="flex flex-col gap-6">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Browse Available Batches</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {allClasses.map(cls => {
-              const isEnrolled = myClasses.some(c => c.id === cls.id);
-              const request = myRequests.find(r => r.classId === cls.id);
+      {/* Past Sessions / Recordings Feed */}
+      <div className="flex flex-col gap-6">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Play className="w-5 h-5 text-brand-500" /> Session Recordings
+        </h2>
+        
+        {loadingRecordings ? (
+          <div className="h-40 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-500 font-medium animate-pulse">
+            Loading your recordings...
+          </div>
+        ) : recordingsData.length === 0 ? (
+          <div className="h-40 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-slate-500 font-medium">
+            <Video className="w-8 h-8 opacity-40 mb-3" />
+            No past sessions recorded yet.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {recordingsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((rec, i) => {
+              const dateObj = new Date(rec.date);
+              const dateStr = dateObj.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+              const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               
-              let buttonState = { text: "Request to Join", disabled: false, color: "bg-brand-600 text-white hover:bg-brand-700" };
-              
-              if (isEnrolled || request?.status === 'approved') {
-                buttonState = { text: "Enrolled", disabled: true, color: "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400" };
-              } else if (request?.status === 'pending') {
-                buttonState = { text: "Requested", disabled: true, color: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" };
-              } else if (request?.status === 'rejected') {
-                buttonState = { text: "Rejected", disabled: true, color: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400" };
-              }
-
               return (
-                <div key={cls.id} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 flex flex-col gap-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center font-bold text-lg">
-                      {cls.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white">{cls.name}</h3>
-                      <p className="text-xs text-slate-500">Tutor ID: {cls.teacherId}</p>
-                    </div>
+                <div key={rec.id || i} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 transition-all hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md">
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{rec.title}</h3>
+                    <p className="text-sm font-medium text-slate-500">
+                      {dateStr} at {timeStr}
+                    </p>
+                    {rec.password && (
+                      <div 
+                        onClick={() => handleCopyPasscode(rec.password)}
+                        className="mt-3 text-[11px] font-mono bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 w-fit cursor-pointer flex items-center gap-2 group/pass hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm"
+                        title="Click to copy passcode"
+                      >
+                        <span className="text-slate-500 font-sans font-semibold">Passcode:</span> 
+                        <span className="font-bold tracking-wider">{rec.password}</span>
+                        {copiedPasscode === rec.password ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-slate-400 group-hover/pass:text-brand-500 transition-colors" />}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    disabled={buttonState.disabled}
-                    onClick={() => handleRequestJoin(cls.id)}
-                    className={`mt-auto w-full py-2.5 rounded-xl font-bold text-sm transition-all ${buttonState.color}`}
-                  >
-                    {buttonState.text}
-                  </button>
+                  <div className="shrink-0 mt-4 sm:mt-0">
+                    <a 
+                      href={rec.url} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="w-full sm:w-auto px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl transition-all shadow-md hover:scale-105 active:scale-95 flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Play className="w-4 h-4" fill="currentColor" /> Watch Video
+                    </a>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* Recordings Modal */}
-      {viewingRecordings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Play className="w-5 h-5 text-brand-500" /> Class Recordings
-              </h3>
-              <button onClick={() => setViewingRecordings(null)} className="text-slate-400 hover:text-slate-600">
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              {loadingRecordings ? (
-                <div className="py-12 text-center text-slate-500 animate-pulse">Fetching recordings...</div>
-              ) : recordingsData.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-                  No recordings found for this class.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {recordingsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((rec, i) => {
-                    const dateStr = new Date(rec.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-                    const sourceLabel = rec.source === 'zoom' ? 'Official Zoom Cloud' : 'Local Dummy Demo';
-                    return (
-                      <div key={rec.id || i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 hover:border-brand-300 transition-colors">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900 dark:text-white">{rec.title}</span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-slate-500">{dateStr}</span>
-                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 tracking-wider">
-                              {sourceLabel}
-                            </span>
-                          </div>
-                        </div>
-                        <a 
-                          href={rec.url} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity flex items-center gap-2"
-                        >
-                          <Play className="w-4 h-4" /> Watch
-                        </a>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

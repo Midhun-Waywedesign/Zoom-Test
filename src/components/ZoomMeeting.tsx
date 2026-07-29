@@ -146,7 +146,6 @@ export default function ZoomMeeting({
             setZoomVisible(true); // hand off to Zoom's UI right away — don't wait for join() success
             ZoomMtg.join({
               signature,
-              sdkKey,
               meetingNumber,
               passWord: password,
               userName,

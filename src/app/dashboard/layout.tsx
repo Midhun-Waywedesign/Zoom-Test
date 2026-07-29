@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { GraduationCap, LayoutDashboard, LogOut, Video, Users, CheckSquare, PlusCircle, Search } from "lucide-react";
+import { GraduationCap, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 import type { User } from "@/lib/db";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -35,10 +36,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] dark:bg-[#020617] overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#f8fafc] dark:bg-[#020617] overflow-hidden font-sans flex-col md:flex-row">
       
+      {/* Mobile Top Nav */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-30 shadow-sm relative">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center font-semibold shadow-md">
+            <GraduationCap className="w-4 h-4" />
+          </div>
+          <span className="font-bold text-slate-900 dark:text-white tracking-tight">Axis Language</span>
+        </div>
+        <button 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
+          className="p-2 -mr-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+        >
+          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shadow-sm z-10">
+      <aside className={`fixed md:static inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shadow-2xl md:shadow-sm z-50 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-6 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center font-semibold shadow-md">
             <GraduationCap className="w-5 h-5" />
@@ -51,7 +76,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navItems.map((item) => (
             <button
               key={item.name}
-              onClick={() => router.push(item.href)}
+              onClick={() => {
+                router.push(item.href);
+                setMobileMenuOpen(false);
+              }}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm ${
                 item.active 
                   ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' 

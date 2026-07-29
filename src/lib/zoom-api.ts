@@ -58,6 +58,7 @@ export async function createInstantMeeting(topic: string, hostUserId: string) {
         participant_video: true,
         waiting_room: false,
         join_before_host: false,
+        auto_recording: "cloud",
       },
     }),
   });

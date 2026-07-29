@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
 
     const payload = {
       appKey: sdkKey,
-      sdkKey,
-      mn: meetingNumber,
-      role: role ?? 0, // 0 = attendee, 1 = host
+      sdkKey: sdkKey,
+      mn: Number(meetingNumber),
+      role: Number(role ?? 0), // 0 = attendee, 1 = host
       iat,
       exp,
       tokenExp: exp,

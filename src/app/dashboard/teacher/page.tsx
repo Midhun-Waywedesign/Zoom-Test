@@ -3,20 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User, ClassDef, LiveSession } from "@/lib/db";
-import { Users, Play, Video, Clock, XCircle } from "lucide-react";
+import { Users, Video } from "lucide-react";
 
 export default function TutorDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [classes, setClasses] = useState<ClassDef[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
-  
-  const [viewingAttendance, setViewingAttendance] = useState<string | null>(null);
-  const [attendanceData, setAttendanceData] = useState<any[]>([]);
-  const [loadingAttendance, setLoadingAttendance] = useState(false);
-  
-  const [viewingRecordings, setViewingRecordings] = useState<string | null>(null);
-  const [recordingsData, setRecordingsData] = useState<any[]>([]);
-  const [loadingRecordings, setLoadingRecordings] = useState(false);
   
   const router = useRouter();
 
@@ -66,38 +58,10 @@ export default function TutorDashboard() {
     }
   };
 
-  const handleViewAttendance = async (classId: string) => {
-    setViewingAttendance(classId);
-    setLoadingAttendance(true);
-    try {
-      const res = await fetch(`/api/attendance?classId=${classId}`);
-      const data = await res.json();
-      setAttendanceData(data);
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setLoadingAttendance(false);
-    }
-  };
-
-  const handleViewRecordings = async (classId: string) => {
-    setViewingRecordings(classId);
-    setLoadingRecordings(true);
-    try {
-      const res = await fetch(`/api/recordings?classId=${classId}`);
-      const data = await res.json();
-      setRecordingsData(data);
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setLoadingRecordings(false);
-    }
-  };
-
   if (!user) return null;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto flex flex-col gap-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col gap-8">
       
       {/* Header */}
       <div>
@@ -148,18 +112,12 @@ export default function TutorDashboard() {
                     )}
                   </div>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-t border-slate-200 dark:border-slate-800 flex justify-between">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
                   <button
-                    className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
-                    onClick={() => handleViewAttendance(cls.id)}
+                    className="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors flex items-center gap-1.5"
+                    onClick={() => router.push(`/dashboard/teacher/class/${cls.id}`)}
                   >
-                    <Clock className="w-4 h-4" /> Attendance
-                  </button>
-                  <button
-                    className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2"
-                    onClick={() => handleViewRecordings(cls.id)}
-                  >
-                    <Play className="w-4 h-4" /> Recordings
+                    Enter Class Portal &rarr;
                   </button>
                 </div>
               </div>
@@ -173,114 +131,6 @@ export default function TutorDashboard() {
           )}
         </div>
       </div>
-
-      {/* Attendance Modal */}
-      {viewingAttendance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Clock className="w-5 h-5 text-brand-500" /> Attendance Report
-              </h3>
-              <button onClick={() => setViewingAttendance(null)} className="text-slate-400 hover:text-slate-600">
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              {loadingAttendance ? (
-                <div className="py-12 text-center text-slate-500 animate-pulse">Loading local attendance data...</div>
-              ) : attendanceData.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-                  No attendance records found for this class.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {attendanceData.sort((a, b) => b.joinTime - a.joinTime).map((record, i) => {
-                    const joinStr = new Date(record.joinTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    const leaveStr = record.leaveTime ? new Date(record.leaveTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Present';
-                    const dateStr = new Date(record.joinTime).toLocaleDateString();
-                    const durationMs = record.leaveTime ? (record.leaveTime - record.joinTime) : (Date.now() - record.joinTime);
-                    const durationMins = Math.round(durationMs / 60000);
-                    
-                    return (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900 dark:text-white">{record.studentName}</span>
-                          <span className="text-xs text-slate-500">{dateStr}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex flex-col items-end">
-                            <span className="text-green-600 font-medium">Joined: {joinStr}</span>
-                            <span className={record.leaveTime ? "text-red-500 font-medium" : "text-brand-600 font-medium animate-pulse"}>
-                              {record.leaveTime ? `Left: ${leaveStr}` : 'Still in meeting'}
-                            </span>
-                          </div>
-                          <div className="px-3 py-1 bg-slate-200 dark:bg-slate-700 rounded-lg text-xs font-bold min-w-[60px] text-center text-slate-700 dark:text-slate-300">
-                            {durationMins} min
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recordings Modal */}
-      {viewingRecordings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Play className="w-5 h-5 text-brand-500" /> Class Recordings
-              </h3>
-              <button onClick={() => setViewingRecordings(null)} className="text-slate-400 hover:text-slate-600">
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              {loadingRecordings ? (
-                <div className="py-12 text-center text-slate-500 animate-pulse">Fetching recordings...</div>
-              ) : recordingsData.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-                  No recordings found for this class.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {recordingsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((rec, i) => {
-                    const dateStr = new Date(rec.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-                    const sourceLabel = rec.source === 'zoom' ? 'Official Zoom Cloud' : 'Local Dummy Demo';
-                    return (
-                      <div key={rec.id || i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 hover:border-brand-300 transition-colors">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900 dark:text-white">{rec.title}</span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-slate-500">{dateStr}</span>
-                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 tracking-wider">
-                              {sourceLabel}
-                            </span>
-                          </div>
-                        </div>
-                        <a 
-                          href={rec.url} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity flex items-center gap-2"
-                        >
-                          <Play className="w-4 h-4" /> Watch
-                        </a>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

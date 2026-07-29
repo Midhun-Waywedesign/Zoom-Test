@@ -13,15 +13,15 @@ export async function GET(req: NextRequest) {
     if (!cls) return NextResponse.json({ error: "Class not found" }, { status: 404 });
 
     const recordingsResult = [];
-    let zoomFailed = false;
 
-    // Try to fetch official recordings from Zoom
     if (cls.pastMeetingNumbers && cls.pastMeetingNumbers.length > 0) {
-      for (const meetingNumber of cls.pastMeetingNumbers) {
+      for (let i = 0; i < cls.pastMeetingNumbers.length; i++) {
+        const meetingNumber = cls.pastMeetingNumbers[i];
+        let addedZoom = false;
+        
         try {
           const report = await getMeetingRecordings(meetingNumber);
           if (report && report.recording_files) {
-            // Zoom returns multiple files (audio, video, etc.). We find the MP4/video one.
             const videoFile = report.recording_files.find((f: any) => f.file_type === 'MP4');
             if (videoFile) {
               recordingsResult.push({
@@ -29,27 +29,36 @@ export async function GET(req: NextRequest) {
                 title: report.topic || `Class Recording - ${new Date(videoFile.recording_start).toLocaleDateString()}`,
                 url: videoFile.play_url,
                 date: videoFile.recording_start,
-                source: 'zoom'
+                source: 'zoom',
+                password: report.password,
+                meetingNumber: meetingNumber
               });
+              addedZoom = true;
             }
           }
         } catch (err: any) {
-          console.error(`Failed to fetch recordings for meeting ${meetingNumber}:`, err.message);
-          zoomFailed = true;
-          // If we hit a 400/401 because it's a free account or missing scopes, we break early to trigger fallback
-          break;
+          console.error(`Zoom recording not ready for ${meetingNumber}:`, err.message);
+          // Don't break, just fall back to local dummy for this specific meeting
+        }
+
+        // If zoom failed for this meeting, fallback to dummy
+        if (!addedZoom && cls.recordings && cls.recordings[i]) {
+          recordingsResult.push({
+            ...cls.recordings[i],
+            source: 'local',
+            meetingNumber: meetingNumber
+          });
         }
       }
-    }
-
-    // FALLBACK: If Zoom failed (e.g. free account), or if there are no Zoom recordings,
-    // we return the dummy local recordings stored in data.json.
-    if (zoomFailed || recordingsResult.length === 0) {
-      const fallbackRecordings = (cls.recordings || []).map(r => ({
-        ...r,
-        source: 'local'
-      }));
-      return NextResponse.json(fallbackRecordings);
+    } else if (cls.recordings && cls.recordings.length > 0) {
+      // Legacy fallback
+      cls.recordings.forEach((r) => {
+        recordingsResult.push({
+          ...r,
+          source: 'local',
+          meetingNumber: 'unknown'
+        });
+      });
     }
 
     return NextResponse.json(recordingsResult);

@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
 });
 
@@ -25,7 +20,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${nunito.variable} h-full antialiased font-sans`}
     >
       <head>
         <link
@@ -37,6 +32,18 @@ export default function RootLayout({
           type="text/css"
           rel="stylesheet"
           href="https://source.zoom.us/6.1.0/css/react-select.css"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              const originalError = console.error;
+              console.error = function(...args) {
+                if (args[0] === false) return;
+                if (typeof args[0] === 'string' && args[0].includes('Hydration')) return;
+                originalError.apply(console, args);
+              };
+            `
+          }}
         />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>

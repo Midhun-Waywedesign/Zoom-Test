@@ -42,8 +42,8 @@ export default function MeetingPage() {
 
       const live = sessions.find((s: LiveSession) => s.classId === classId);
       if (!live) {
-        alert("Meeting hasn't started yet");
-        router.push(`/dashboard/${parsedUser.role}`);
+        const dashPath = parsedUser.role === 'tutor' ? 'teacher' : parsedUser.role;
+        router.push(`/dashboard/${dashPath}`);
         return;
       }
       setSession(live);
@@ -75,7 +75,7 @@ export default function MeetingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classId })
       });
-      router.push('/dashboard/teacher');
+      window.location.href = '/dashboard/teacher';
     } else {
       // Student left - mark leave
       if (user && session) {
@@ -90,7 +90,7 @@ export default function MeetingPage() {
           })
         });
       }
-      router.push('/dashboard/student');
+      window.location.href = '/dashboard/student';
     }
   };
 
