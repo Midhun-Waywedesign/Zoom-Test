@@ -11,6 +11,7 @@ type Props = {
   zak?: string;
   signature?: string;
   sdkKey?: string;
+  leaveUrl?: string;
   onJoin?: () => void;
   onLeave: () => void;
 };
@@ -71,6 +72,7 @@ export default function ZoomMeeting({
   zak,
   signature: providedSignature,
   sdkKey: providedSdkKey,
+  leaveUrl,
   onJoin,
   onLeave,
 }: Props) {
@@ -137,7 +139,7 @@ export default function ZoomMeeting({
         setStatus("Initializing SDK...");
 
         ZoomMtg.init({
-          leaveUrl: window.location.href, // see note below re: SPA leave handling
+          leaveUrl: leaveUrl || window.location.href, // Navigate to dashboard after meeting ends
           patchJsMedia: true,
           disablePreview: false,
           success: () => {

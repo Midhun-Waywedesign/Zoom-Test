@@ -43,20 +43,33 @@ export default function MeetingPage() {
       const live = sessions.find((s: LiveSession) => s.classId === classId);
       if (!live) {
         if (role === 1) {
-          // Vercel Blob is still propagating the new meeting, retry in 1 second
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-          return;
+          // Check retry count to prevent infinite reloading
+          const retries = parseInt(sessionStorage.getItem(`retry-${classId}`) || '0');
+          if (retries < 5) {
+            sessionStorage.setItem(`retry-${classId}`, (retries + 1).toString());
+            // Vercel Blob is still propagating the new meeting, retry in 1.5 seconds
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+            return;
+          } else {
+            // Clean up and go to dashboard if too many retries
+            sessionStorage.removeItem(`retry-${classId}`);
+            window.location.href = '/dashboard/teacher';
+            return;
+          }
         }
         const dashPath = parsedUser.role === 'tutor' ? 'teacher' : parsedUser.role;
         router.push(`/dashboard/${dashPath}`);
         return;
       }
+      
+      // If found, clear any retry counter
+      sessionStorage.removeItem(`retry-${classId}`);
       setSession(live);
       setLoading(false);
     });
-  }, [classId, router]);
+  }, [classId, router, role]);
 
   const handleJoin = async () => {
     if (role === 0 && user && session) {
@@ -101,6 +114,11 @@ export default function MeetingPage() {
     }
   };
 
+  const getLeaveUrl = () => {
+    if (typeof window === 'undefined') return '/';
+    return window.location.origin + (role === 1 ? '/dashboard/teacher' : '/dashboard/student');
+  };
+
   if (loading || !session || !user) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading meeting details...</div>;
 
   return (
@@ -111,6 +129,7 @@ export default function MeetingPage() {
         userName={user.name}
         role={role}
         zak={role === 1 ? session.zak : undefined}
+        leaveUrl={getLeaveUrl()}
         onJoin={handleJoin}
         onLeave={handleLeave}
       />
