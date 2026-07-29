@@ -251,14 +251,12 @@ export default function StudentDashboard() {
                     )}
                   </div>
                   <div className="shrink-0 mt-4 sm:mt-0">
-                    <a 
-                      href={rec.url} 
-                      target="_blank" 
-                      rel="noreferrer"
+                    <button 
+                      onClick={() => router.push(`/dashboard/student/class/${myClass.id}/recording/${rec.id}`)}
                       className="w-full sm:w-auto px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl transition-all shadow-md hover:scale-105 active:scale-95 flex items-center justify-center gap-2 text-sm"
                     >
                       <Play className="w-4 h-4" fill="currentColor" /> Watch Video
-                    </a>
+                    </button>
                   </div>
                 </div>
               );
