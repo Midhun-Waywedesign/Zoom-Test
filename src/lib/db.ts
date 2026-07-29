@@ -1,5 +1,4 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { put, list } from '@vercel/blob';
 
 export type User = {
   id: string;
@@ -52,7 +51,7 @@ export type DbSchema = {
   enrollmentRequests: EnrollmentRequest[];
 };
 
-const DB_PATH = path.join(process.cwd(), 'data.json');
+
 
 const INITIAL_DATA: DbSchema = {
   users: [
@@ -89,19 +88,27 @@ const INITIAL_DATA: DbSchema = {
 
 async function readDb(): Promise<DbSchema> {
   try {
-    const data = await fs.readFile(DB_PATH, 'utf-8');
-    return JSON.parse(data) as DbSchema;
-  } catch (err: any) {
-    if (err.code === 'ENOENT') {
+    const { blobs } = await list();
+    const dbBlob = blobs.find(b => b.pathname === 'data.json');
+    if (!dbBlob) {
       await writeDb(INITIAL_DATA);
       return INITIAL_DATA;
     }
-    throw err;
+    const res = await fetch(dbBlob.url, { cache: 'no-store' });
+    const data = await res.json();
+    return data as DbSchema;
+  } catch (err) {
+    console.warn("Vercel Blob not configured or error. Using in-memory fallback.", err);
+    return INITIAL_DATA;
   }
 }
 
 async function writeDb(data: DbSchema): Promise<void> {
-  await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  try {
+    await put('data.json', JSON.stringify(data), { access: 'public', addRandomSuffix: false });
+  } catch (err) {
+    console.error("Vercel Blob write error:", err);
+  }
 }
 
 export const db = {
