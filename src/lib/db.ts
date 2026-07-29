@@ -12,7 +12,7 @@ export type ClassDef = {
   name: string;
   teacherId: string;
   studentIds: string[];
-  recordings: { id: string; title: string; url: string; date: string; status: 'pending' | 'uploaded' | 'failed' }[];
+  recordings: { id: string; title: string; url: string; date: string; status: 'pending' | 'uploaded' | 'failed'; password?: string }[];
   pastMeetingNumbers?: string[];
 };
 
