@@ -97,7 +97,7 @@ export default function Home() {
             Axis Language School Demo
           </div>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
-            The modern way to <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-400">master languages.</span>
+            The modern way to <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-500">master languages.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-500 max-w-lg mx-auto md:mx-0 font-medium mt-2">
             Join live classes seamlessly directly in your browser. No extra apps, no extra accounts. Experience education reinvented.
