@@ -163,6 +163,11 @@ export const db = {
     return data.liveSessions.find(s => s.classId === classId);
   },
 
+  async getAllLiveSessions() {
+    const data = await readDb();
+    return data.liveSessions || [];
+  },
+
   async getLiveSessionByMeetingNumber(meetingNumber: string) {
     const data = await readDb();
     return data.liveSessions.find(s => s.meetingNumber === meetingNumber);

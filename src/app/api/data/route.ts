@@ -18,10 +18,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === 'live-sessions') {
-      // Just returning all live sessions for now, can be filtered by class IDs if needed
-      const data = await import('@/lib/db').then(m => m.db); // re-import to avoid caching issues in some cases
-      const allSessions = await (await import('fs/promises')).readFile('data.json', 'utf-8').then(JSON.parse).catch(() => ({ liveSessions: [] }));
-      return NextResponse.json(allSessions.liveSessions || []);
+      const sessions = await db.getAllLiveSessions();
+      return NextResponse.json(sessions);
     }
 
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
