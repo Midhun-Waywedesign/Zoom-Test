@@ -58,6 +58,24 @@ export default function TutorDashboard() {
     }
   };
 
+  const handleForceEnd = async (classId: string) => {
+    if (!confirm("Are you sure you want to end this live session?")) return;
+    try {
+      const res = await fetch('/api/end-class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classId })
+      });
+      if (!res.ok) throw new Error("Failed to end class");
+      // Refresh the dashboard data
+      if (user) {
+        fetchData(user.id);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -96,12 +114,20 @@ export default function TutorDashboard() {
                   
                   <div className="mt-auto pt-6 flex gap-3">
                     {liveSession ? (
-                      <button
-                        className="flex-1 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold py-2.5 rounded-xl border border-red-200 dark:border-red-500/20 text-sm flex items-center justify-center gap-2"
-                        onClick={() => router.push(`/meeting/${cls.id}?role=1`)}
-                      >
-                        <Video className="w-4 h-4" /> Join Live
-                      </button>
+                      <>
+                        <button
+                          className="flex-1 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 font-bold py-2.5 rounded-xl border border-green-200 dark:border-green-500/20 text-sm flex items-center justify-center gap-2 transition-all hover:bg-green-100 dark:hover:bg-green-500/20"
+                          onClick={() => router.push(`/meeting/${cls.id}?role=1`)}
+                        >
+                          <Video className="w-4 h-4" /> Join Live
+                        </button>
+                        <button
+                          className="flex-1 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold py-2.5 rounded-xl border border-red-200 dark:border-red-500/20 text-sm flex items-center justify-center gap-2 transition-all hover:bg-red-100 dark:hover:bg-red-500/20"
+                          onClick={() => handleForceEnd(cls.id)}
+                        >
+                          End Session
+                        </button>
+                      </>
                     ) : (
                       <button
                         className="flex-1 bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400 font-bold py-2.5 rounded-xl border border-brand-200 dark:border-brand-500/20 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition-all text-sm flex items-center justify-center gap-2"
