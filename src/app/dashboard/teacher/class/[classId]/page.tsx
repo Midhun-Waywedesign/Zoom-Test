@@ -302,12 +302,15 @@ export default function TutorClassPage() {
                       >
                         <FileText className="w-4 h-4" /> Attendance
                       </button>
-                      <button 
-                        onClick={() => router.push(`/dashboard/teacher/class/${classId}/recording/${rec.id}`)}
+                      <a 
+                        href={rec.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => handleCopyPasscode(rec.password || '')}
                         className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl transition-all shadow-md hover:scale-105 active:scale-95 flex items-center gap-2 text-sm"
                       >
                         <Play className="w-4 h-4" fill="currentColor" /> Watch
-                      </button>
+                      </a>
                       <button 
                         onClick={() => handleDeleteRecording(rec.id, rec.meetingNumber)}
                         className="p-2.5 rounded-xl transition-all bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center ml-2"
