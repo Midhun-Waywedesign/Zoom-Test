@@ -15,8 +15,8 @@ export default function TutorDashboard() {
   const fetchData = async (userId: string) => {
     try {
       const [classesRes, sessionsRes] = await Promise.all([
-        fetch(`/api/data?type=classes&userId=${userId}`).then(res => res.json()),
-        fetch(`/api/data?type=live-sessions`).then(res => res.json())
+        fetch(`/api/data?type=classes&userId=${userId}&t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/data?type=live-sessions&t=${Date.now()}`).then(res => res.json())
       ]);
       setClasses(classesRes);
       setLiveSessions(sessionsRes);

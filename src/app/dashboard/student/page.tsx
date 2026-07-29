@@ -24,10 +24,10 @@ export default function StudentDashboard() {
   const fetchData = async (userId: string) => {
     try {
       const [myClassesRes, allClassesRes, sessionsRes, requestsRes] = await Promise.all([
-        fetch(`/api/data?type=classes&userId=${userId}`).then(res => res.json()),
-        fetch(`/api/classes`).then(res => res.json()),
-        fetch(`/api/data?type=live-sessions`).then(res => res.json()),
-        fetch(`/api/enroll?studentId=${userId}`).then(res => res.json())
+        fetch(`/api/data?type=classes&userId=${userId}&t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/classes?t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/data?type=live-sessions&t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/enroll?studentId=${userId}&t=${Date.now()}`).then(res => res.json())
       ]);
       
       const enrolledClass = myClassesRes.length > 0 ? myClassesRes[0] : null;

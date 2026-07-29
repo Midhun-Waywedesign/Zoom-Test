@@ -29,8 +29,8 @@ export default function MeetingPage() {
 
     // Fetch class & session data
     Promise.all([
-      fetch(`/api/data?type=classes&userId=${parsedUser.id}`).then(res => res.json()),
-      fetch('/api/data?type=live-sessions').then(res => res.json())
+      fetch(`/api/data?type=classes&userId=${parsedUser.id}&t=${Date.now()}`).then(res => res.json()),
+      fetch(`/api/data?type=live-sessions&t=${Date.now()}`).then(res => res.json())
     ]).then(([classes, sessions]) => {
       const cls = classes.find((c: ClassDef) => c.id === classId);
       if (!cls) {
@@ -42,6 +42,13 @@ export default function MeetingPage() {
 
       const live = sessions.find((s: LiveSession) => s.classId === classId);
       if (!live) {
+        if (role === 1) {
+          // Vercel Blob is still propagating the new meeting, retry in 1 second
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+          return;
+        }
         const dashPath = parsedUser.role === 'tutor' ? 'teacher' : parsedUser.role;
         router.push(`/dashboard/${dashPath}`);
         return;
