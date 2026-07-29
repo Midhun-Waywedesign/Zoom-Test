@@ -203,6 +203,20 @@ export const db = {
     }
   },
 
+  async deleteRecording(classId: string, recordingId: string, meetingNumber?: string) {
+    const data = await readDb();
+    const cls = data.classes.find(c => c.id === classId);
+    if (cls) {
+      if (cls.recordings) {
+        cls.recordings = cls.recordings.filter(r => r.id !== recordingId);
+      }
+      if (meetingNumber && meetingNumber !== 'unknown' && cls.pastMeetingNumbers) {
+        cls.pastMeetingNumbers = cls.pastMeetingNumbers.filter(n => n !== meetingNumber);
+      }
+      await writeDb(data);
+    }
+  },
+
   async markAttendanceJoin(classId: string, meetingNumber: string, studentId: string, studentName: string) {
     const data = await readDb();
     // See if they already joined and didn't leave

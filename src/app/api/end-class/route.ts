@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { endZoomMeeting } from "@/lib/zoom-api";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const session = await db.getLiveSession(classId);
+    if (session) {
+      await endZoomMeeting(session.meetingNumber);
+    }
+    
     await db.endLiveSession(classId);
 
     return NextResponse.json({ success: true });

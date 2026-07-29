@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import type { User, ClassDef, LiveSession } from "@/lib/db";
-import { Users, Play, Video, Clock, ChevronLeft, Calendar, Check, Copy, AlertCircle, FileText } from "lucide-react";
+import { Users, Play, Video, Clock, ChevronLeft, Calendar, Check, Copy, AlertCircle, FileText, Trash2 } from "lucide-react";
 
 export default function TutorClassPage() {
   const { classId } = useParams();
@@ -20,6 +20,14 @@ export default function TutorClassPage() {
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   
   const [copiedPasscode, setCopiedPasscode] = useState<string | null>(null);
+
+  const [dateFilter, setDateFilter] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('academy-user');
@@ -124,6 +132,26 @@ export default function TutorClassPage() {
     setTimeout(() => setCopiedPasscode(null), 2000);
   };
 
+  const handleDeleteRecording = async (recordingId: string, meetingNumber: string) => {
+    if (!confirm("Are you sure you want to delete this recording? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/recordings?classId=${classId}&recordingId=${recordingId}&meetingNumber=${meetingNumber}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      setRecordingsData(prev => prev.filter(r => r.id !== recordingId));
+      
+      // If we deleted the last item on this page, go back one page
+      const newTotalItems = recordingsData.length - 1;
+      const newTotalPages = Math.ceil(newTotalItems / itemsPerPage);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   if (!user || !classData) {
     return (
       <div className="flex items-center justify-center h-full p-12 text-slate-500 animate-pulse">
@@ -131,6 +159,20 @@ export default function TutorClassPage() {
       </div>
     );
   }
+
+  const filteredRecordings = recordingsData
+    .filter(rec => {
+      if (!dateFilter) return true;
+      const recDate = new Date(rec.date).toISOString().split('T')[0];
+      return recDate === dateFilter;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const totalPages = Math.ceil(filteredRecordings.length / itemsPerPage);
+  const paginatedRecordings = filteredRecordings.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col gap-8 pb-20">
@@ -187,22 +229,41 @@ export default function TutorClassPage() {
 
       {/* Past Sessions Feed */}
       <div className="flex flex-col gap-6">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Clock className="w-5 h-5 text-brand-500" /> Past Sessions
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Clock className="w-5 h-5 text-brand-500" /> Past Sessions
+          </h2>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-slate-500">Filter by Date:</label>
+            <input 
+              type="date" 
+              value={dateFilter}
+              onChange={e => setDateFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:border-brand-500 text-slate-700 dark:text-slate-300"
+            />
+            {dateFilter && (
+              <button 
+                onClick={() => setDateFilter('')}
+                className="text-xs text-slate-400 hover:text-slate-600 underline font-semibold"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
         
         {loadingRecordings ? (
           <div className="h-40 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-500 font-medium">
             Loading sessions...
           </div>
-        ) : recordingsData.length === 0 ? (
+        ) : filteredRecordings.length === 0 ? (
           <div className="h-40 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-slate-500 font-medium">
             <Video className="w-8 h-8 opacity-40 mb-3" />
-            No past sessions recorded yet.
+            No recordings match this date.
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {recordingsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((rec, i) => {
+            {paginatedRecordings.map((rec, i) => {
               const dateObj = new Date(rec.date);
               const dateStr = dateObj.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
               const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -249,6 +310,13 @@ export default function TutorClassPage() {
                       >
                         <Play className="w-4 h-4" fill="currentColor" /> Watch
                       </a>
+                      <button 
+                        onClick={() => handleDeleteRecording(rec.id, rec.meetingNumber)}
+                        className="p-2.5 rounded-xl transition-all bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center ml-2"
+                        title="Delete Recording"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                   
@@ -321,6 +389,26 @@ export default function TutorClassPage() {
                 </div>
               );
             })}
+            
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-4 mt-6">
+                <button 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-semibold text-slate-500">Page {currentPage} of {totalPages}</span>
+                <button 
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

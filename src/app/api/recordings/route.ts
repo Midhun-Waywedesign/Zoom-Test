@@ -66,3 +66,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch recordings" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const classId = searchParams.get('classId');
+    const recordingId = searchParams.get('recordingId');
+    const meetingNumber = searchParams.get('meetingNumber');
+
+    if (!classId || !recordingId) {
+      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 });
+    }
+
+    await db.deleteRecording(classId, recordingId, meetingNumber || undefined);
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to delete recording" }, { status: 500 });
+  }
+}

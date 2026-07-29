@@ -116,3 +116,19 @@ export async function getMeetingRecordings(meetingId: string) {
 
   return res.json();
 }
+
+export async function endZoomMeeting(meetingId: string) {
+  const token = await getS2SAccessToken();
+  const res = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}/status`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action: "end" }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`Failed to end Zoom meeting: ${res.status} ${body}`);
+  }
+}
